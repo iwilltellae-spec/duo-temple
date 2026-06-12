@@ -101,7 +101,7 @@
       </div>
       <div class="settings">
         <label for="serverUrl">Render WebSocket URL</label>
-        <input id="serverUrl" placeholder="wss://your-server.onrender.com" style="letter-spacing:0;text-transform:none;text-align:left;font-weight:650" />
+        <input id="serverUrl" placeholder="wss://duo-temple-server1.onrender.com" style="letter-spacing:0;text-transform:none;text-align:left;font-weight:650" />
         <p class="small">Пока сервер не задеплоен — используй «Тренировка». Для онлайна вставь URL сервера Render.</p>
       </div>
     </div>
@@ -144,7 +144,8 @@
   }
   addEventListener('resize', resize, { passive: true }); resize();
 
-  serverUrlInput.value = params.get('server') || localStorage.duoTempleServer || '';
+  const DEFAULT_SERVER_URL = 'wss://duo-temple-server1.onrender.com';
+  serverUrlInput.value = params.get('server') || localStorage.duoTempleServer || DEFAULT_SERVER_URL;
   roomInput.value = params.get('room') || '';
 
   const LEVELS = [
@@ -969,5 +970,6 @@
   function roundRect(x,y,w,h,r){ r=Math.min(r,w/2,h/2); ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
 })();
 </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"1954b47c125f43f8b4338b3c4f804e4f","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
