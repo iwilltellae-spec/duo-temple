@@ -1,0 +1,14 @@
+{
+  "name": "duo-temple",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vertical Telegram WebApp co-op platformer prototype for two phones.",
+  "scripts": {
+    "dev:client": "npx serve client -l 5173",
+    "dev:server": "node server/server.js",
+    "start": "node server/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
