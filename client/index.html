@@ -1,0 +1,973 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#120f2f" />
+  <title>Duo Temple — Fire & Water Co-op</title>
+  <style>
+    :root {
+      --bg: #09071d;
+      --panel: rgba(18, 15, 47, .72);
+      --panel2: rgba(255,255,255,.08);
+      --gold: #ffd477;
+      --fire: #ff7b39;
+      --water: #54ccff;
+      --text: #fff8e8;
+      --muted: rgba(255,248,232,.72);
+      --danger: #ff5178;
+      --ok: #7cffbe;
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; }
+    body { touch-action: none; position: fixed; inset: 0; }
+
+    #app { position: fixed; inset: 0; display: grid; place-items: center; background:
+      radial-gradient(circle at 50% -10%, rgba(78, 169, 255,.34), transparent 38%),
+      radial-gradient(circle at 100% 80%, rgba(255, 122, 57,.18), transparent 45%),
+      linear-gradient(#100d32, #060514 72%);
+    }
+
+    canvas { width: min(100vw, calc(100vh * 9 / 16)); height: min(100vh, calc(100vw * 16 / 9)); display: block; border-radius: clamp(0px, 2.2vw, 22px); box-shadow: 0 30px 90px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.08); background: #110e31; }
+
+    .overlay { position: fixed; inset: 0; display: grid; place-items: center; padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom)); pointer-events: none; }
+    .card { width: min(430px, 94vw); border: 1px solid rgba(255,255,255,.16); background: linear-gradient(180deg, rgba(20, 17, 55,.86), rgba(10, 8, 28,.78)); box-shadow: 0 24px 80px rgba(0,0,0,.45); border-radius: 28px; backdrop-filter: blur(18px); padding: 20px; pointer-events: auto; }
+    .hidden { display: none !important; }
+
+    .brand { display:flex; align-items:center; gap:14px; margin-bottom: 12px; }
+    .logo { width: 54px; height: 54px; border-radius: 18px; background: conic-gradient(from 180deg, #ff7839, #ffd477, #54ccff, #7f74ff, #ff7839); position: relative; box-shadow: 0 8px 28px rgba(255, 122, 57,.25); }
+    .logo:after { content:""; position:absolute; inset:8px; border-radius: 13px; background: radial-gradient(circle at 35% 35%, #fff8, transparent 25%), linear-gradient(135deg, #ff6c36 0 49%, #50caff 51%); }
+    h1 { margin: 0; letter-spacing: -.04em; font-size: 32px; line-height: 1; }
+    p { margin: 8px 0; color: var(--muted); line-height: 1.45; }
+    .small { font-size: 13px; color: rgba(255,248,232,.62); }
+
+    .row { display:flex; gap:10px; }
+    .row > * { flex: 1; }
+    button, input { font: inherit; border: 0; outline: none; }
+    button { min-height: 48px; border-radius: 16px; padding: 12px 14px; color: #140f24; background: linear-gradient(180deg, #fff2bf, #ffd477); font-weight: 800; box-shadow: 0 10px 28px rgba(255, 212, 119,.22); cursor: pointer; }
+    button.secondary { color: var(--text); background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.12); box-shadow: none; }
+    button.fire { background: linear-gradient(180deg, #ffb36e, #ff7039); color: #1c0710; }
+    button.water { background: linear-gradient(180deg, #b6f0ff, #52caff); color: #061521; }
+    input { width:100%; min-height:48px; border-radius:16px; background: rgba(255,255,255,.09); color: var(--text); border: 1px solid rgba(255,255,255,.14); padding: 0 14px; text-transform: uppercase; font-weight: 800; letter-spacing: .12em; text-align:center; }
+    .divider { height: 1px; background: rgba(255,255,255,.12); margin: 16px 0; }
+
+    #hud { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: min(430px, 94vw); display:flex; justify-content:space-between; align-items:center; gap: 8px; pointer-events:none; }
+    .pill { border: 1px solid rgba(255,255,255,.13); background: rgba(8,7,24,.46); backdrop-filter: blur(10px); border-radius:999px; padding: 8px 12px; font-size:13px; font-weight:700; color: rgba(255,248,232,.88); box-shadow: 0 8px 30px rgba(0,0,0,.22); }
+    #rolePill, #statusPill { pointer-events: auto; cursor: pointer; }
+    #toast { position: fixed; left: 50%; bottom: calc(138px + env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(390px, 90vw); text-align:center; background: rgba(10,8,28,.78); border: 1px solid rgba(255,255,255,.13); border-radius: 18px; padding: 11px 14px; backdrop-filter: blur(12px); font-weight: 750; opacity:0; transition: opacity .25s, translate .25s; pointer-events:none; }
+    #toast.show { opacity:1; translate: 0 -6px; }
+
+    #controls { position: fixed; left: 0; right: 0; bottom: max(12px, env(safe-area-inset-bottom)); display:flex; justify-content:space-between; align-items:end; gap: 16px; padding: 0 max(14px, env(safe-area-inset-left)) 0 max(14px, env(safe-area-inset-right)); pointer-events:none; }
+    .pad { display:flex; gap:10px; pointer-events:auto; }
+    .action { pointer-events:auto; }
+    .ctl { width: 66px; height:66px; border-radius: 24px; display:grid; place-items:center; color: white; background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.18); box-shadow: 0 10px 35px rgba(0,0,0,.25), inset 0 1px rgba(255,255,255,.12); backdrop-filter: blur(12px); user-select:none; font-size:24px; font-weight:900; }
+    .ctl.active { transform: translateY(2px) scale(.98); background: rgba(255, 212, 119,.22); }
+    .ctl.jump { width: 82px; height:82px; border-radius: 30px; background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.08)); }
+
+    .settings { margin-top:12px; display:grid; gap:8px; }
+    label { font-size: 12px; color: rgba(255,248,232,.62); font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+    #tgHint { color: var(--ok); }
+  </style>
+</head>
+<body>
+  <div id="app"><canvas id="game" aria-label="Duo Temple game canvas"></canvas></div>
+
+  <div id="hud">
+    <div class="pill" id="rolePill">Режим: тренировка</div>
+    <div class="pill" id="statusPill">Готово</div>
+  </div>
+
+  <div class="overlay" id="menuOverlay">
+    <div class="card">
+      <div class="brand"><div class="logo"></div><div><h1>Duo Temple</h1><p class="small">Вертикальный co-op: огонь + вода</p></div></div>
+      <p>Качественный прототип под Telegram WebApp: два телефона, одна комната, каждый управляет своим героем.</p>
+      <p id="tgHint" class="small hidden">Telegram WebApp обнаружен. После деплоя можно делать invite-ссылки прямо в чат.</p>
+      <div class="divider"></div>
+      <div class="row">
+        <button class="fire" id="createFire">Создать за Огонь</button>
+        <button class="water" id="createWater">Создать за Воду</button>
+      </div>
+      <div style="height:10px"></div>
+      <div class="row">
+        <input id="roomInput" placeholder="КОД" maxlength="8" />
+        <button id="joinBtn" class="secondary">Войти</button>
+      </div>
+      <div class="divider"></div>
+      <div class="row">
+        <button id="practiceBtn" class="secondary">Тренировка</button>
+        <button id="copyInviteBtn" class="secondary">Копировать ссылку</button>
+      </div>
+      <div class="settings">
+        <label for="serverUrl">Render WebSocket URL</label>
+        <input id="serverUrl" placeholder="wss://your-server.onrender.com" style="letter-spacing:0;text-transform:none;text-align:left;font-weight:650" />
+        <p class="small">Пока сервер не задеплоен — используй «Тренировка». Для онлайна вставь URL сервера Render.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <div id="controls">
+    <div class="pad">
+      <div class="ctl" data-key="left">←</div>
+      <div class="ctl" data-key="right">→</div>
+    </div>
+    <div class="action"><div class="ctl jump" data-key="jump">↑</div></div>
+  </div>
+
+<script>
+(() => {
+  'use strict';
+
+  const Telegram = window.Telegram?.WebApp;
+  if (Telegram) { Telegram.ready(); Telegram.expand(); document.getElementById('tgHint').classList.remove('hidden'); }
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const menu = document.getElementById('menuOverlay');
+  const rolePill = document.getElementById('rolePill');
+  const statusPill = document.getElementById('statusPill');
+  const toastEl = document.getElementById('toast');
+  const roomInput = document.getElementById('roomInput');
+  const serverUrlInput = document.getElementById('serverUrl');
+  const params = new URLSearchParams(location.search);
+
+  const W = 540, H = 960;
+  let DPR = 1;
+  function resize() {
+    DPR = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  addEventListener('resize', resize, { passive: true }); resize();
+
+  serverUrlInput.value = params.get('server') || localStorage.duoTempleServer || '';
+  roomInput.value = params.get('room') || '';
+
+  const LEVELS = [
+    {
+      name: '1. Плиты стихий',
+      spawn: { fire: { x: 134, y: 838 }, water: { x: 406, y: 838 } },
+      exit: { x: 270, y: 86, w: 112, h: 112 },
+      platforms: [
+        { x: 50, y: 884, w: 440, h: 34 },
+        { x: 60, y: 760, w: 170, h: 26 }, { x: 310, y: 760, w: 170, h: 26 },
+        { x: 130, y: 650, w: 280, h: 26 },
+        { x: 52, y: 540, w: 180, h: 26 }, { x: 308, y: 540, w: 180, h: 26 },
+        { x: 130, y: 430, w: 280, h: 26 },
+        { x: 52, y: 320, w: 180, h: 26 }, { x: 308, y: 320, w: 180, h: 26 },
+        { x: 108, y: 206, w: 324, h: 26 },
+        { x: 196, y: 148, w: 148, h: 22 }
+      ],
+      hazards: [
+        { type: 'fire', x: 98, y: 744, w: 86, h: 16 },
+        { type: 'water', x: 356, y: 744, w: 86, h: 16 },
+        { type: 'fire', x: 88, y: 524, w: 82, h: 16 },
+        { type: 'water', x: 370, y: 524, w: 82, h: 16 }
+      ],
+      gems: [
+        { type:'fire', x: 104, y: 704 }, { type:'fire', x: 92, y: 486 }, { type:'fire', x: 164, y: 282 },
+        { type:'water', x: 436, y: 704 }, { type:'water', x: 448, y: 486 }, { type:'water', x: 376, y: 282 }
+      ],
+      buttons: [
+        { id:'firePlate', x: 112, y: 306, w: 66, h: 14, role:'fire', label:'🔥' },
+        { id:'waterPlate', x: 362, y: 306, w: 66, h: 14, role:'water', label:'💧' }
+      ],
+      gates: [
+        { id:'final', x: 254, y: 104, w: 32, h: 104, open: false, latched: false, requires:['firePlate','waterPlate'] }
+      ]
+    },
+    {
+      name: '2. Раздельный подъём',
+      spawn: { fire: { x: 118, y: 838 }, water: { x: 422, y: 838 } },
+      exit: { x: 270, y: 86, w: 112, h: 112 },
+      platforms: [
+        { x: 50, y: 884, w: 440, h: 34 },
+        { x: 56, y: 756, w: 166, h: 26 }, { x: 318, y: 756, w: 166, h: 26 },
+        { x: 138, y: 640, w: 264, h: 26 },
+        { x: 56, y: 528, w: 166, h: 26 }, { x: 318, y: 528, w: 166, h: 26 },
+        { x: 136, y: 416, w: 268, h: 26 },
+        { x: 56, y: 304, w: 166, h: 26 }, { x: 318, y: 304, w: 166, h: 26 },
+        { x: 166, y: 192, w: 208, h: 26 },
+        { x: 218, y: 148, w: 104, h: 22 }
+      ],
+      hazards: [
+        { type:'water', x: 326, y: 868, w: 92, h: 16 },
+        { type:'fire', x: 122, y: 740, w: 74, h: 16 },
+        { type:'water', x: 344, y: 512, w: 76, h: 16 },
+        { type:'fire', x: 120, y: 288, w: 76, h: 16 },
+        { type:'water', x: 232, y: 400, w: 78, h: 16 }
+      ],
+      gems: [
+        { type:'fire', x: 98, y: 716 }, { type:'fire', x: 178, y: 374 }, { type:'fire', x: 344, y: 150 },
+        { type:'water', x: 442, y: 716 }, { type:'water', x: 360, y: 374 }, { type:'water', x: 196, y: 150 }
+      ],
+      buttons: [
+        { id:'leftTop', x: 106, y: 290, w: 64, h: 14, role:'fire', label:'🔥' },
+        { id:'rightTop', x: 370, y: 290, w: 64, h: 14, role:'water', label:'💧' }
+      ],
+      gates: [
+        { id:'final', x: 254, y: 104, w: 32, h: 104, open:false, latched:false, requires:['leftTop','rightTop'] }
+      ]
+    },
+    {
+      name: '3. Два замка',
+      spawn: { fire: { x: 124, y: 838 }, water: { x: 416, y: 838 } },
+      exit: { x: 270, y: 86, w: 112, h: 112 },
+      platforms: [
+        { x: 50, y: 884, w: 440, h: 34 },
+        { x: 56, y: 760, w: 174, h: 26 }, { x: 310, y: 760, w: 174, h: 26 },
+        { x: 96, y: 650, w: 348, h: 26 },
+        { x: 56, y: 540, w: 164, h: 26 }, { x: 320, y: 540, w: 164, h: 26 },
+        { x: 118, y: 430, w: 304, h: 26 },
+        { x: 56, y: 320, w: 164, h: 26 }, { x: 320, y: 320, w: 164, h: 26 },
+        { x: 136, y: 210, w: 268, h: 26 },
+        { x: 200, y: 148, w: 140, h: 22 }
+      ],
+      hazards: [
+        { type:'water', x: 240, y: 634, w: 72, h: 16 },
+        { type:'fire', x: 228, y: 414, w: 84, h: 16 },
+        { type:'water', x: 84, y: 304, w: 72, h: 16 },
+        { type:'fire', x: 384, y: 304, w: 72, h: 16 }
+      ],
+      gems: [
+        { type:'fire', x: 88, y: 716 }, { type:'fire', x: 90, y: 500 }, { type:'fire', x: 356, y: 170 },
+        { type:'water', x: 452, y: 716 }, { type:'water', x: 452, y: 500 }, { type:'water', x: 184, y: 170 }
+      ],
+      buttons: [
+        { id:'fireLock', x: 112, y: 526, w: 66, h: 14, role:'fire', label:'🔥' },
+        { id:'waterLock', x: 362, y: 306, w: 66, h: 14, role:'water', label:'💧' },
+        { id:'bothLock', x: 237, y: 416, w: 66, h: 14, role:null, label:'◆' }
+      ],
+      gates: [
+        { id:'fireLock', x: 254, y: 650, w: 32, h: 110, open:false, latched:false, latch:true },
+        { id:'waterLock', x: 254, y: 320, w: 32, h: 110, open:false, latched:false, latch:true },
+        { id:'final', x: 254, y: 104, w: 32, h: 104, open:false, latched:false, requires:['fireLock','waterLock','bothLock'] }
+      ]
+    },
+    {
+      name: '4. Перекрёстная дверь',
+      spawn: { fire: { x: 112, y: 838 }, water: { x: 428, y: 838 } },
+      exit: { x: 270, y: 86, w: 112, h: 112 },
+      platforms: [
+        { x: 50, y: 884, w: 440, h: 34 },
+        { x: 62, y: 760, w: 150, h: 26 }, { x: 328, y: 760, w: 150, h: 26 },
+        { x: 160, y: 662, w: 220, h: 26 },
+        { x: 62, y: 548, w: 150, h: 26 }, { x: 328, y: 548, w: 150, h: 26 },
+        { x: 160, y: 452, w: 220, h: 26 },
+        { x: 62, y: 340, w: 150, h: 26 }, { x: 328, y: 340, w: 150, h: 26 },
+        { x: 150, y: 236, w: 240, h: 26 },
+        { x: 204, y: 148, w: 132, h: 22 }
+      ],
+      hazards: [
+        { type:'fire', x: 176, y: 646, w: 72, h: 16 },
+        { type:'water', x: 292, y: 646, w: 72, h: 16 },
+        { type:'water', x: 96, y: 532, w: 70, h: 16 },
+        { type:'fire', x: 374, y: 532, w: 70, h: 16 },
+        { type:'fire', x: 96, y: 324, w: 70, h: 16 },
+        { type:'water', x: 374, y: 324, w: 70, h: 16 }
+      ],
+      gems: [
+        { type:'fire', x: 188, y: 616 }, { type:'fire', x: 94, y: 500 }, { type:'fire', x: 366, y: 198 },
+        { type:'water', x: 352, y: 616 }, { type:'water', x: 446, y: 500 }, { type:'water', x: 174, y: 198 }
+      ],
+      buttons: [
+        { id:'fireSide', x: 96, y: 326, w: 66, h: 14, role:'fire', label:'🔥' },
+        { id:'waterSide', x: 378, y: 326, w: 66, h: 14, role:'water', label:'💧' }
+      ],
+      gates: [
+        { id:'final', x: 254, y: 104, w: 32, h: 104, open:false, latched:false, requires:['fireSide','waterSide'] }
+      ]
+    },
+    {
+      name: '5. Центральный мост',
+      spawn: { fire: { x: 118, y: 838 }, water: { x: 422, y: 838 } },
+      exit: { x: 270, y: 86, w: 112, h: 112 },
+      platforms: [
+        { x: 50, y: 884, w: 440, h: 34 },
+        { x: 62, y: 756, w: 158, h: 26 }, { x: 320, y: 756, w: 158, h: 26 },
+        { x: 118, y: 648, w: 304, h: 26 },
+        { x: 62, y: 538, w: 158, h: 26 }, { x: 320, y: 538, w: 158, h: 26 },
+        { x: 122, y: 428, w: 296, h: 26 },
+        { x: 62, y: 318, w: 158, h: 26 }, { x: 320, y: 318, w: 158, h: 26 },
+        { x: 150, y: 212, w: 240, h: 26 },
+        { x: 202, y: 148, w: 136, h: 22 }
+      ],
+      hazards: [
+        { type:'fire', x: 238, y: 868, w: 64, h: 16 },
+        { type:'water', x: 238, y: 632, w: 64, h: 16 },
+        { type:'fire', x: 238, y: 412, w: 64, h: 16 },
+        { type:'water', x: 238, y: 196, w: 64, h: 16 },
+        { type:'water', x: 90, y: 522, w: 70, h: 16 },
+        { type:'fire', x: 380, y: 522, w: 70, h: 16 }
+      ],
+      gems: [
+        { type:'fire', x: 94, y: 716 }, { type:'fire', x: 382, y: 490 }, { type:'fire', x: 92, y: 280 },
+        { type:'water', x: 446, y: 716 }, { type:'water', x: 158, y: 490 }, { type:'water', x: 448, y: 280 }
+      ],
+      buttons: [
+        { id:'bridgeFire', x: 112, y: 524, w: 66, h: 14, role:'fire', label:'🔥' },
+        { id:'bridgeWater', x: 362, y: 524, w: 66, h: 14, role:'water', label:'💧' },
+        { id:'summit', x: 237, y: 414, w: 66, h: 14, role:null, label:'◆' }
+      ],
+      gates: [
+        { id:'bridgeFire', x: 254, y: 648, w: 32, h: 108, open:false, latched:false, latch:true },
+        { id:'bridgeWater', x: 254, y: 428, w: 32, h: 110, open:false, latched:false, latch:true },
+        { id:'final', x: 254, y: 104, w: 32, h: 104, open:false, latched:false, requires:['bridgeFire','bridgeWater','summit'] }
+      ]
+    },
+    {
+      name: '6. Первый пазл',
+      spawn: { fire: { x: 112, y: 838 }, water: { x: 428, y: 838 } },
+      exit: { x: 270, y: 86, w: 112, h: 112 },
+      platforms: [
+        { x: 50, y: 884, w: 440, h: 34 },
+        { x: 58, y: 770, w: 148, h: 26 }, { x: 334, y: 770, w: 148, h: 26 },
+        { x: 144, y: 666, w: 252, h: 26 },
+        { x: 58, y: 558, w: 148, h: 26 }, { x: 334, y: 558, w: 148, h: 26 },
+        { x: 144, y: 454, w: 252, h: 26 },
+        { x: 58, y: 348, w: 148, h: 26 }, { x: 334, y: 348, w: 148, h: 26 },
+        { x: 126, y: 244, w: 288, h: 26 },
+        { x: 200, y: 148, w: 140, h: 22 }
+      ],
+      hazards: [
+        { type:'water', x: 214, y: 650, w: 54, h: 16 },
+        { type:'fire', x: 272, y: 650, w: 54, h: 16 },
+        { type:'fire', x: 84, y: 542, w: 76, h: 16 },
+        { type:'water', x: 380, y: 542, w: 76, h: 16 },
+        { type:'water', x: 84, y: 332, w: 76, h: 16 },
+        { type:'fire', x: 380, y: 332, w: 76, h: 16 },
+        { type:'fire', x: 218, y: 228, w: 48, h: 16 },
+        { type:'water', x: 274, y: 228, w: 48, h: 16 }
+      ],
+      gems: [
+        { type:'fire', x: 96, y: 728 }, { type:'fire', x: 440, y: 518 }, { type:'fire', x: 96, y: 308 },
+        { type:'water', x: 444, y: 728 }, { type:'water', x: 100, y: 518 }, { type:'water', x: 444, y: 308 }
+      ],
+      buttons: [
+        { id:'lowFire', x: 104, y: 544, w: 66, h: 14, role:'fire', label:'🔥' },
+        { id:'lowWater', x: 370, y: 544, w: 66, h: 14, role:'water', label:'💧' },
+        { id:'topFire', x: 104, y: 334, w: 66, h: 14, role:'fire', label:'🔥' },
+        { id:'topWater', x: 370, y: 334, w: 66, h: 14, role:'water', label:'💧' }
+      ],
+      gates: [
+        { id:'lowFire', x: 254, y: 666, w: 32, h: 104, open:false, latched:false, latch:true },
+        { id:'lowWater', x: 254, y: 454, w: 32, h: 104, open:false, latched:false, latch:true },
+        { id:'final', x: 254, y: 104, w: 32, h: 104, open:false, latched:false, requires:['lowFire','lowWater','topFire','topWater'] }
+      ]
+    }
+,
+    {
+      name: '7. Лестница замков',
+      spawn: { fire: { x: 118, y: 838 }, water: { x: 422, y: 838 } },
+      exit: { x: 270, y: 86, w: 112, h: 112 },
+      platforms: [
+        { x: 50, y: 884, w: 440, h: 34 },
+        { x: 58, y: 770, w: 156, h: 26 }, { x: 326, y: 770, w: 156, h: 26 },
+        { x: 126, y: 660, w: 288, h: 26 },
+        { x: 58, y: 552, w: 156, h: 26 }, { x: 326, y: 552, w: 156, h: 26 },
+        { x: 126, y: 444, w: 288, h: 26 },
+        { x: 58, y: 336, w: 156, h: 26 }, { x: 326, y: 336, w: 156, h: 26 },
+        { x: 126, y: 228, w: 288, h: 26 },
+        { x: 202, y: 148, w: 136, h: 22 }
+      ],
+      hazards: [
+        { type:'water', x: 232, y: 644, w: 76, h: 16 },
+        { type:'fire', x: 232, y: 428, w: 76, h: 16 },
+        { type:'water', x: 82, y: 320, w: 72, h: 16 },
+        { type:'fire', x: 386, y: 320, w: 72, h: 16 },
+        { type:'fire', x: 232, y: 212, w: 76, h: 16 }
+      ],
+      gems: [
+        { type:'fire', x: 96, y: 728 }, { type:'fire', x: 442, y: 514 }, { type:'fire', x: 96, y: 296 },
+        { type:'water', x: 444, y: 728 }, { type:'water', x: 98, y: 514 }, { type:'water', x: 444, y: 296 }
+      ],
+      buttons: [
+        { id:'lockA', x: 106, y: 538, w: 66, h: 14, role:'fire', label:'🔥' },
+        { id:'lockB', x: 368, y: 430, w: 66, h: 14, role:'water', label:'💧' },
+        { id:'lockC', x: 237, y: 214, w: 66, h: 14, role:null, label:'◆' }
+      ],
+      gates: [
+        { id:'lockA', x: 254, y: 660, w: 32, h: 110, open:false, latched:false, latch:true },
+        { id:'lockB', x: 254, y: 444, w: 32, h: 108, open:false, latched:false, latch:true },
+        { id:'final', x: 254, y: 104, w: 32, h: 104, open:false, latched:false, requires:['lockA','lockB','lockC'] }
+      ]
+    },
+    {
+      name: '8. Обмен сторонами',
+      spawn: { fire: { x: 114, y: 838 }, water: { x: 426, y: 838 } },
+      exit: { x: 270, y: 86, w: 112, h: 112 },
+      platforms: [
+        { x: 50, y: 884, w: 440, h: 34 },
+        { x: 60, y: 766, w: 156, h: 26 }, { x: 324, y: 766, w: 156, h: 26 },
+        { x: 162, y: 662, w: 216, h: 26 },
+        { x: 60, y: 558, w: 156, h: 26 }, { x: 324, y: 558, w: 156, h: 26 },
+        { x: 162, y: 454, w: 216, h: 26 },
+        { x: 60, y: 350, w: 156, h: 26 }, { x: 324, y: 350, w: 156, h: 26 },
+        { x: 146, y: 242, w: 248, h: 26 },
+        { x: 202, y: 148, w: 136, h: 22 }
+      ],
+      hazards: [
+        { type:'fire', x: 182, y: 646, w: 62, h: 16 },
+        { type:'water', x: 296, y: 646, w: 62, h: 16 },
+        { type:'water', x: 94, y: 542, w: 74, h: 16 },
+        { type:'fire', x: 372, y: 542, w: 74, h: 16 },
+        { type:'fire', x: 94, y: 334, w: 74, h: 16 },
+        { type:'water', x: 372, y: 334, w: 74, h: 16 }
+      ],
+      gems: [
+        { type:'fire', x: 96, y: 728 }, { type:'fire', x: 440, y: 518 }, { type:'fire', x: 356, y: 204 },
+        { type:'water', x: 444, y: 728 }, { type:'water', x: 100, y: 518 }, { type:'water', x: 184, y: 204 }
+      ],
+      buttons: [
+        { id:'swapFire', x: 374, y: 336, w: 66, h: 14, role:'fire', label:'🔥' },
+        { id:'swapWater', x: 100, y: 336, w: 66, h: 14, role:'water', label:'💧' },
+        { id:'centerSeal', x: 237, y: 228, w: 66, h: 14, role:null, label:'◆' }
+      ],
+      gates: [
+        { id:'centerSeal', x: 254, y: 242, w: 32, h: 108, open:false, latched:false, latch:true },
+        { id:'final', x: 254, y: 104, w: 32, h: 104, open:false, latched:false, requires:['swapFire','swapWater','centerSeal'] }
+      ]
+    },
+    {
+      name: '9. Четыре печати',
+      spawn: { fire: { x: 118, y: 838 }, water: { x: 422, y: 838 } },
+      exit: { x: 270, y: 86, w: 112, h: 112 },
+      platforms: [
+        { x: 50, y: 884, w: 440, h: 34 },
+        { x: 54, y: 772, w: 148, h: 26 }, { x: 338, y: 772, w: 148, h: 26 },
+        { x: 126, y: 670, w: 288, h: 26 },
+        { x: 54, y: 566, w: 148, h: 26 }, { x: 338, y: 566, w: 148, h: 26 },
+        { x: 126, y: 462, w: 288, h: 26 },
+        { x: 54, y: 358, w: 148, h: 26 }, { x: 338, y: 358, w: 148, h: 26 },
+        { x: 126, y: 254, w: 288, h: 26 },
+        { x: 202, y: 148, w: 136, h: 22 }
+      ],
+      hazards: [
+        { type:'water', x: 226, y: 654, w: 88, h: 16 },
+        { type:'fire', x: 226, y: 446, w: 88, h: 16 },
+        { type:'water', x: 86, y: 342, w: 70, h: 16 },
+        { type:'fire', x: 384, y: 342, w: 70, h: 16 },
+        { type:'fire', x: 190, y: 238, w: 58, h: 16 },
+        { type:'water', x: 292, y: 238, w: 58, h: 16 }
+      ],
+      gems: [
+        { type:'fire', x: 94, y: 734 }, { type:'fire', x: 442, y: 528 }, { type:'fire', x: 94, y: 320 },
+        { type:'water', x: 446, y: 734 }, { type:'water', x: 98, y: 528 }, { type:'water', x: 446, y: 320 }
+      ],
+      buttons: [
+        { id:'f1', x: 94, y: 552, w: 62, h: 14, role:'fire', label:'🔥' },
+        { id:'w1', x: 384, y: 552, w: 62, h: 14, role:'water', label:'💧' },
+        { id:'f2', x: 94, y: 344, w: 62, h: 14, role:'fire', label:'🔥' },
+        { id:'w2', x: 384, y: 344, w: 62, h: 14, role:'water', label:'💧' }
+      ],
+      gates: [
+        { id:'f1', x: 254, y: 670, w: 32, h: 102, open:false, latched:false, latch:true },
+        { id:'w1', x: 254, y: 462, w: 32, h: 104, open:false, latched:false, latch:true },
+        { id:'final', x: 254, y: 104, w: 32, h: 104, open:false, latched:false, requires:['f1','w1','f2','w2'] }
+      ]
+    },
+    {
+      name: '10. Узкий храм',
+      spawn: { fire: { x: 122, y: 838 }, water: { x: 418, y: 838 } },
+      exit: { x: 270, y: 86, w: 112, h: 112 },
+      platforms: [
+        { x: 50, y: 884, w: 440, h: 34 },
+        { x: 70, y: 776, w: 132, h: 26 }, { x: 338, y: 776, w: 132, h: 26 },
+        { x: 182, y: 682, w: 176, h: 26 },
+        { x: 70, y: 578, w: 132, h: 26 }, { x: 338, y: 578, w: 132, h: 26 },
+        { x: 182, y: 484, w: 176, h: 26 },
+        { x: 70, y: 380, w: 132, h: 26 }, { x: 338, y: 380, w: 132, h: 26 },
+        { x: 148, y: 276, w: 244, h: 26 },
+        { x: 204, y: 148, w: 132, h: 22 }
+      ],
+      hazards: [
+        { type:'fire', x: 224, y: 666, w: 92, h: 16 },
+        { type:'water', x: 224, y: 468, w: 92, h: 16 },
+        { type:'fire', x: 224, y: 260, w: 54, h: 16 },
+        { type:'water', x: 286, y: 260, w: 54, h: 16 },
+        { type:'water', x: 92, y: 562, w: 64, h: 16 },
+        { type:'fire', x: 384, y: 562, w: 64, h: 16 }
+      ],
+      gems: [
+        { type:'fire', x: 94, y: 738 }, { type:'fire', x: 444, y: 540 }, { type:'fire', x: 104, y: 342 },
+        { type:'water', x: 446, y: 738 }, { type:'water', x: 96, y: 540 }, { type:'water', x: 436, y: 342 }
+      ],
+      buttons: [
+        { id:'leftRune', x: 104, y: 366, w: 62, h: 14, role:'fire', label:'🔥' },
+        { id:'rightRune', x: 374, y: 366, w: 62, h: 14, role:'water', label:'💧' },
+        { id:'middleRune', x: 237, y: 262, w: 66, h: 14, role:null, label:'◆' }
+      ],
+      gates: [
+        { id:'leftRune', x: 254, y: 578, w: 32, h: 104, open:false, latched:false, latch:true },
+        { id:'rightRune', x: 254, y: 380, w: 32, h: 104, open:false, latched:false, latch:true },
+        { id:'final', x: 254, y: 104, w: 32, h: 104, open:false, latched:false, requires:['leftRune','rightRune','middleRune'] }
+      ]
+    },
+    {
+      name: '11. Двойной ключ',
+      spawn: { fire: { x: 112, y: 838 }, water: { x: 428, y: 838 } },
+      exit: { x: 270, y: 86, w: 112, h: 112 },
+      platforms: [
+        { x: 50, y: 884, w: 440, h: 34 },
+        { x: 54, y: 778, w: 150, h: 26 }, { x: 336, y: 778, w: 150, h: 26 },
+        { x: 128, y: 676, w: 284, h: 26 },
+        { x: 54, y: 572, w: 150, h: 26 }, { x: 336, y: 572, w: 150, h: 26 },
+        { x: 128, y: 468, w: 284, h: 26 },
+        { x: 54, y: 364, w: 150, h: 26 }, { x: 336, y: 364, w: 150, h: 26 },
+        { x: 128, y: 260, w: 284, h: 26 },
+        { x: 196, y: 148, w: 148, h: 22 }
+      ],
+      hazards: [
+        { type:'water', x: 232, y: 660, w: 76, h: 16 },
+        { type:'fire', x: 232, y: 452, w: 76, h: 16 },
+        { type:'water', x: 84, y: 348, w: 72, h: 16 },
+        { type:'fire', x: 384, y: 348, w: 72, h: 16 },
+        { type:'fire', x: 190, y: 244, w: 62, h: 16 },
+        { type:'water', x: 288, y: 244, w: 62, h: 16 }
+      ],
+      gems: [
+        { type:'fire', x: 92, y: 740 }, { type:'fire', x: 448, y: 532 }, { type:'fire', x: 92, y: 326 },
+        { type:'water', x: 448, y: 740 }, { type:'water', x: 92, y: 532 }, { type:'water', x: 448, y: 326 }
+      ],
+      buttons: [
+        { id:'lowerFire', x: 94, y: 558, w: 62, h: 14, role:'fire', label:'🔥' },
+        { id:'lowerWater', x: 384, y: 558, w: 62, h: 14, role:'water', label:'💧' },
+        { id:'upperFire', x: 94, y: 350, w: 62, h: 14, role:'fire', label:'🔥' },
+        { id:'upperWater', x: 384, y: 350, w: 62, h: 14, role:'water', label:'💧' },
+        { id:'crown', x: 237, y: 246, w: 66, h: 14, role:null, label:'◆' }
+      ],
+      gates: [
+        { id:'lowerFire', x: 254, y: 676, w: 32, h: 102, open:false, latched:false, latch:true },
+        { id:'lowerWater', x: 254, y: 468, w: 32, h: 104, open:false, latched:false, latch:true },
+        { id:'final', x: 254, y: 104, w: 32, h: 104, open:false, latched:false, requires:['lowerFire','lowerWater','upperFire','upperWater','crown'] }
+      ]
+    }
+  ];
+
+  let currentLevelIndex = Math.max(0, Math.min(LEVELS.length - 1, Number(localStorage.duoTempleLevel || 0)));
+  let LEVEL = freshLevel(currentLevelIndex);
+
+  function freshLevel(index) {
+    return JSON.parse(JSON.stringify(LEVELS[index]));
+  }
+
+  const PHYSICS = {
+    jumpVelocity: -660,
+    gravity: 1380,
+    moveAccel: 1850,
+    maxSpeed: 235
+  };
+
+  const input = { fire: emptyInput(), water: emptyInput() };
+  let localRole = null;
+  let roomId = null;
+  let socket = null;
+  let online = false;
+  let practiceMode = false;
+  let seq = 0;
+  let lastSent = '';
+  let cameraShake = 0;
+  let win = false;
+  let particles = [];
+  let collected = new Set();
+
+  const players = {
+    fire: makePlayer('fire'),
+    water: makePlayer('water')
+  };
+
+  function emptyInput() { return { left:false, right:false, jump:false }; }
+  function makePlayer(role) {
+    const s = LEVEL.spawn[role];
+    return { role, x:s.x, y:s.y, vx:0, vy:0, w:34, h:54, grounded:false, face: role === 'fire' ? 1 : -1, alive:true, respawn:0, score:0, glow:0 };
+  }
+  function resetGame() {
+    Object.assign(players.fire, makePlayer('fire'));
+    Object.assign(players.water, makePlayer('water'));
+    LEVEL.gates.forEach(g => { g.open = false; g.latched = false; });
+    LEVEL.buttons.forEach(b => { b.pressed = false; });
+    input.fire = emptyInput(); input.water = emptyInput();
+    collected = new Set(); particles = []; cameraShake = 0; win = false;
+    showToast(`${LEVEL.name}`);
+  }
+
+  function loadLevel(index, announce = true) {
+    currentLevelIndex = Math.max(0, Math.min(LEVELS.length - 1, index));
+    localStorage.duoTempleLevel = String(currentLevelIndex);
+    LEVEL = freshLevel(currentLevelIndex);
+    resetGame();
+    if (announce && online) send({ type:'level', index: currentLevelIndex });
+  }
+
+  function nextLevel() {
+    if (currentLevelIndex < LEVELS.length - 1) {
+      loadLevel(currentLevelIndex + 1);
+      toast(`Следующий уровень: ${LEVEL.name}`, 3200);
+    } else {
+      toast('Пачка уровней пройдена. До цели 50 осталось 39 🔥', 5200);
+      resetGame();
+    }
+  }
+
+  function toast(text, ms=2200) { showToast(text, ms); }
+  function showToast(text, ms=2200) {
+    toastEl.textContent = text; toastEl.classList.add('show');
+    clearTimeout(showToast.t); showToast.t = setTimeout(() => toastEl.classList.remove('show'), ms);
+  }
+
+  function wsUrl() {
+    const v = serverUrlInput.value.trim();
+    localStorage.duoTempleServer = v;
+    if (!v) return '';
+    return v.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:').replace(/\/$/, '');
+  }
+
+  function connect() {
+    const url = wsUrl();
+    if (!url) { toast('Сначала вставь URL сервера Render'); return null; }
+    statusPill.textContent = 'Подключение...';
+    const ws = new WebSocket(url);
+    ws.onopen = () => { statusPill.textContent = 'Онлайн'; };
+    ws.onclose = () => { online = false; statusPill.textContent = 'Оффлайн'; toast('Соединение закрыто'); };
+    ws.onerror = () => { statusPill.textContent = 'Ошибка сети'; toast('Не удалось подключиться к серверу'); };
+    ws.onmessage = (e) => {
+      let msg; try { msg = JSON.parse(e.data); } catch { return; }
+      if (msg.type === 'joined') {
+        online = true; practiceMode = false; roomId = msg.room.id; localRole = msg.role; menu.classList.add('hidden');
+        rolePill.textContent = `${localRole === 'fire' ? '🔥 Огонь' : '💧 Вода'} · комната ${roomId}`;
+        statusPill.textContent = otherConnected(msg.room) ? 'Партнёр в игре' : 'Ждём партнёра';
+        toast(`Комната ${roomId}. Нажми верхнюю плашку, чтобы скопировать ссылку.`);
+        updateUrl();
+      }
+      if (msg.type === 'room-update') statusPill.textContent = otherConnected(msg.room) ? 'Партнёр в игре' : 'Ждём партнёра';
+      if (msg.type === 'peer-input' && msg.role && msg.input) Object.assign(input[msg.role], msg.input);
+      if (msg.type === 'peer-state' && msg.role && msg.state) softSync(players[msg.role], msg.state);
+      if (msg.type === 'restart') resetGame();
+      if (msg.type === 'peer-level') loadLevel(msg.index, false);
+      if (msg.type === 'error') toast(msg.message || 'Ошибка комнаты');
+    };
+    socket = ws; return ws;
+  }
+
+  function otherConnected(room) { const other = localRole === 'fire' ? 'water' : 'fire'; return Boolean(room?.players?.[other]); }
+  function send(msg) { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(msg)); }
+  function updateUrl() {
+    const u = new URL(location.href); u.searchParams.set('room', roomId); u.searchParams.set('server', wsUrl());
+    history.replaceState(null, '', u.toString());
+  }
+  function softSync(p, s) {
+    if (Math.abs(p.x - s.x) > 90 || Math.abs(p.y - s.y) > 90) { p.x = s.x; p.y = s.y; }
+    else { p.x += (s.x - p.x) * .18; p.y += (s.y - p.y) * .18; }
+    p.vx = s.vx ?? p.vx; p.vy = s.vy ?? p.vy;
+  }
+
+  document.getElementById('createFire').onclick = () => { const ws = connect(); ws?.addEventListener('open', () => send({ type:'create-room', role:'fire' }), { once:true }); };
+  document.getElementById('createWater').onclick = () => { const ws = connect(); ws?.addEventListener('open', () => send({ type:'create-room', role:'water' }), { once:true }); };
+  document.getElementById('joinBtn').onclick = () => {
+    const id = roomInput.value.trim().toUpperCase(); if (!id) return toast('Введи код комнаты');
+    const ws = connect(); ws?.addEventListener('open', () => send({ type:'join-room', roomId:id }), { once:true });
+  };
+  document.getElementById('practiceBtn').onclick = () => {
+    localRole = 'fire'; online = false; practiceMode = true; menu.classList.add('hidden');
+    rolePill.textContent = '🔥 Тренировка · Огонь'; statusPill.textContent = 'тапни плашку для смены';
+    toast('В тренировке тапай верхнюю левую плашку, чтобы переключать Огонь/Воду', 4200);
+  };
+  async function copyInvite() {
+    const id = roomId || roomInput.value.trim().toUpperCase(); if (!id) return toast('Сначала создай комнату');
+    const u = new URL(location.href); u.searchParams.set('room', id); if (wsUrl()) u.searchParams.set('server', wsUrl());
+    try { await navigator.clipboard.writeText(u.toString()); toast('Ссылка скопирована'); } catch { toast(u.toString(), 5000); }
+  }
+  document.getElementById('copyInviteBtn').onclick = copyInvite;
+  statusPill.onclick = () => resetGame();
+  rolePill.onclick = () => {
+    if (practiceMode) {
+      input.fire = emptyInput(); input.water = emptyInput();
+      localRole = localRole === 'fire' ? 'water' : 'fire';
+      rolePill.textContent = `${localRole === 'fire' ? '🔥' : '💧'} Тренировка · ${localRole === 'fire' ? 'Огонь' : 'Вода'}`;
+      toast(`Теперь управляешь: ${localRole === 'fire' ? 'Огонь' : 'Вода'}`);
+      return;
+    }
+    copyInvite();
+  };
+
+  if (params.get('room') && params.get('server')) setTimeout(() => document.getElementById('joinBtn').click(), 350);
+
+  const keyMap = { ArrowLeft:'left', ArrowRight:'right', ArrowUp:'jump', KeyA:'left', KeyD:'right', KeyW:'jump', Space:'jump' };
+  addEventListener('keydown', e => {
+    if (e.code === 'KeyR') { e.preventDefault(); resetGame(); return; }
+    if (e.code === 'KeyN') { e.preventDefault(); loadLevel(currentLevelIndex + 1); return; }
+    if (e.code === 'KeyP') { e.preventDefault(); loadLevel(currentLevelIndex - 1); return; }
+    const k = keyMap[e.code]; if (!k) return; e.preventDefault(); setLocal(k, true);
+  });
+  addEventListener('keyup', e => { const k = keyMap[e.code]; if (!k) return; e.preventDefault(); setLocal(k, false); });
+  document.querySelectorAll('.ctl').forEach(el => {
+    const k = el.dataset.key;
+    const down = (ev) => { ev.preventDefault(); el.classList.add('active'); setLocal(k, true); };
+    const up = (ev) => { ev.preventDefault(); el.classList.remove('active'); setLocal(k, false); };
+    el.addEventListener('pointerdown', down); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('pointerleave', up);
+  });
+
+  function setLocal(k, v) {
+    if (!localRole) return;
+    input[localRole][k] = v;
+    maybeSendInput(true);
+  }
+  function maybeSendInput(force=false) {
+    if (!online || !localRole) return;
+    const payload = JSON.stringify(input[localRole]);
+    if (force || payload !== lastSent) { lastSent = payload; send({ type:'input', input: input[localRole], seq: ++seq }); }
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(.033, (now - last) / 1000); last = now;
+    update(dt, now / 1000); draw(now / 1000);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  setInterval(() => { maybeSendInput(false); if (online && localRole) { const p = players[localRole]; send({ type:'state', state:{ x:p.x, y:p.y, vx:p.vx, vy:p.vy } }); } }, 90);
+
+  function update(dt, t) {
+    for (const role of ['fire','water']) stepPlayer(players[role], input[role], dt, t);
+    updateButtons();
+    updateGems(t);
+    updateWin();
+    particles = particles.filter(p => (p.life -= dt) > 0).slice(-140);
+    for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 260 * dt; }
+    cameraShake = Math.max(0, cameraShake - dt * 12);
+  }
+
+  function autopilotWater(t) {
+    const p = players.water, f = players.fire, i = input.water;
+    i.left = i.right = i.jump = false;
+    const targetX = Math.abs(f.y - p.y) < 80 ? (f.x < 270 ? 410 : 130) : f.x;
+    if (targetX < p.x - 18) i.left = true;
+    if (targetX > p.x + 18) i.right = true;
+    if ((p.grounded && (Math.sin(t * 1.7) > .76 || f.y < p.y - 80))) i.jump = true;
+  }
+
+  function stepPlayer(p, i, dt, t) {
+    if (!p.alive) { p.respawn -= dt; if (p.respawn <= 0) Object.assign(p, makePlayer(p.role)); return; }
+    const accel = PHYSICS.moveAccel, max = PHYSICS.maxSpeed, friction = p.grounded ? 0.82 : 0.97;
+    if (i.left) { p.vx -= accel * dt; p.face = -1; }
+    if (i.right) { p.vx += accel * dt; p.face = 1; }
+    if (!i.left && !i.right) p.vx *= friction;
+    p.vx = Math.max(-max, Math.min(max, p.vx));
+    if (i.jump && p.grounded) { p.vy = PHYSICS.jumpVelocity; p.grounded = false; burst(p.x, p.y + p.h/2, p.role, 9); }
+    p.vy += PHYSICS.gravity * dt;
+    moveAxis(p, 'x', p.vx * dt);
+    p.grounded = false;
+    moveAxis(p, 'y', p.vy * dt);
+    if (p.y > H + 60) kill(p);
+    for (const h of LEVEL.hazards) if (rects(hitbox(p), h) && h.type !== p.role) kill(p);
+    p.glow = .5 + .5 * Math.sin(t * 5 + (p.role === 'fire' ? 0 : 2));
+  }
+
+  function hitbox(p) { return { x:p.x-p.w/2, y:p.y-p.h/2, w:p.w, h:p.h }; }
+  function solidRects() { return [...LEVEL.platforms, ...LEVEL.gates.filter(g => !g.open)]; }
+  function moveAxis(p, axis, amount) {
+    p[axis] += amount;
+    const hb = hitbox(p);
+    for (const r of solidRects()) {
+      if (!rects(hb, r)) continue;
+      if (axis === 'x') {
+        if (amount > 0) p.x = r.x - p.w/2; else if (amount < 0) p.x = r.x + r.w + p.w/2;
+        p.vx = 0;
+      } else {
+        if (amount > 0) { p.y = r.y - p.h/2; p.vy = 0; p.grounded = true; }
+        else if (amount < 0) { p.y = r.y + r.h + p.h/2; p.vy = 20; }
+      }
+      Object.assign(hb, hitbox(p));
+    }
+    p.x = Math.max(28, Math.min(W - 28, p.x));
+  }
+  function rects(a,b) { return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
+  function kill(p) { if (!p.alive) return; p.alive = false; p.respawn = .9; cameraShake = 1; burst(p.x, p.y, p.role, 26); if (navigator.vibrate) navigator.vibrate(70); }
+
+  function updateButtons() {
+    for (const b of LEVEL.buttons) {
+      b.pressed = Object.values(players).some(p => {
+        if (b.role && p.role !== b.role) return false;
+        return p.alive && rects(hitbox(p), { x:b.x, y:b.y-14, w:b.w, h:28 });
+      });
+    }
+    const requirementMet = (id) => {
+      const b = LEVEL.buttons.find(b => b.id === id);
+      const g = LEVEL.gates.find(g => g.id === id);
+      return Boolean(b?.pressed || g?.latched || g?.open);
+    };
+    for (const g of LEVEL.gates) {
+      if (g.requires?.length) {
+        const solved = g.requires.every(requirementMet);
+        if (solved && g.latch !== false) g.latched = true;
+        g.open = Boolean(g.latched || solved);
+      } else {
+        const b = LEVEL.buttons.find(b => b.id === g.id);
+        if (b?.pressed && g.latch) g.latched = true;
+        g.open = Boolean(g.latched || b?.pressed);
+      }
+    }
+  }
+  function updateGems(t) {
+    LEVEL.gems.forEach((g, idx) => {
+      if (collected.has(idx)) return;
+      const p = players[g.type];
+      if (p.alive && Math.hypot(p.x - g.x, p.y - g.y) < 36) { collected.add(idx); p.score += 100; burst(g.x, g.y, g.type, 14); }
+    });
+  }
+  function updateWin() {
+    if (win) return;
+    const finalGate = LEVEL.gates.find(g => g.id === 'final');
+    if (finalGate && !finalGate.open) return;
+    const e = LEVEL.exit;
+    if (rects(hitbox(players.fire), {x:e.x-e.w/2, y:e.y-e.h/2, w:e.w, h:e.h}) && rects(hitbox(players.water), {x:e.x-e.w/2, y:e.y-e.h/2, w:e.w, h:e.h})) {
+      win = true; burst(e.x, e.y, 'gold', 60); toast('Победа! Следующий уровень через 2 секунды ✨', 2200); if (navigator.vibrate) navigator.vibrate([70,30,70]);
+      clearTimeout(updateWin.t); updateWin.t = setTimeout(nextLevel, 2100);
+    }
+  }
+  function burst(x,y,type,n) {
+    const color = type === 'fire' ? '#ff8a3d' : type === 'water' ? '#55d3ff' : '#ffd477';
+    for (let k=0;k<n;k++) particles.push({ x,y, vx:(Math.random()-.5)*260, vy:(Math.random()-.8)*260, life:.35+Math.random()*.55, color, r:2+Math.random()*4 });
+  }
+
+  function draw(t) {
+    ctx.clearRect(0,0,W,H);
+    const sx = (Math.random()-.5) * cameraShake * 8, sy = (Math.random()-.5) * cameraShake * 8;
+    ctx.save(); ctx.translate(sx, sy);
+    drawBackground(t); drawExit(t); LEVEL.hazards.forEach(h => drawHazard(h, t)); LEVEL.buttons.forEach(drawButton); LEVEL.gates.forEach(drawGate); LEVEL.platforms.forEach(drawPlatform); drawTutorialHints(t); LEVEL.gems.forEach((g,i)=>{ if(!collected.has(i)) drawGem(g,t); });
+    drawPlayer(players.fire, t); drawPlayer(players.water, t); drawParticles(); drawForeground(t); ctx.restore();
+    drawTopUI();
+  }
+
+  function drawBackground(t) {
+    const bg = ctx.createLinearGradient(0,0,0,H); bg.addColorStop(0,'#19134b'); bg.addColorStop(.55,'#100d30'); bg.addColorStop(1,'#080615'); ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = 'rgba(255,255,255,.035)';
+    for (let x=28; x<W; x+=72) { ctx.fillRect(x,0,2,H); }
+    for (let y=58; y<H; y+=96) { ctx.fillRect(0,y,W,2); }
+    for (let i=0;i<18;i++) { const y = (i*79 + (t*10)%79) % H; ctx.fillStyle = `rgba(255,212,119,${.025 + (i%3)*.012})`; ctx.beginPath(); ctx.arc((i*97)%W, y, 1.2+(i%4),0,7); ctx.fill(); }
+    const halo = ctx.createRadialGradient(W/2, 95, 12, W/2, 95, 260); halo.addColorStop(0,'rgba(255,212,119,.22)'); halo.addColorStop(1,'rgba(255,212,119,0)'); ctx.fillStyle = halo; ctx.fillRect(0,0,W,360);
+    drawTempleColumns();
+  }
+  function drawTempleColumns() {
+    for (const x of [18, W-42]) {
+      const grad = ctx.createLinearGradient(x,0,x+24,0); grad.addColorStop(0,'rgba(255,255,255,.05)'); grad.addColorStop(.5,'rgba(255,255,255,.10)'); grad.addColorStop(1,'rgba(0,0,0,.18)');
+      ctx.fillStyle = grad; roundRect(x, 54, 24, H-108, 10); ctx.fill();
+      ctx.fillStyle = 'rgba(255,212,119,.12)'; for(let y=92;y<H-80;y+=92) ctx.fillRect(x-4,y,32,6);
+    }
+  }
+  function drawPlatform(p) {
+    const g = ctx.createLinearGradient(0,p.y,0,p.y+p.h); g.addColorStop(0,'#7662b8'); g.addColorStop(.46,'#473a86'); g.addColorStop(1,'#241d51');
+    ctx.fillStyle = g; roundRect(p.x,p.y,p.w,p.h,10); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.14)'; roundRect(p.x+6,p.y+4,p.w-12,4,4); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,212,119,.18)'; ctx.lineWidth = 1; ctx.strokeRect(p.x+.5,p.y+.5,p.w-1,p.h-1);
+  }
+  function drawHazard(h,t) {
+    const isFire = h.type === 'fire';
+    const grad = ctx.createLinearGradient(h.x,h.y,h.x+h.w,h.y); grad.addColorStop(0, isFire?'#ff4538':'#3dbdff'); grad.addColorStop(.5, isFire?'#ffd15d':'#a4efff'); grad.addColorStop(1, isFire?'#ff4538':'#3dbdff');
+    ctx.fillStyle = grad; roundRect(h.x,h.y,h.w,h.h,8); ctx.fill();
+    ctx.globalAlpha = .75; ctx.fillStyle = isFire ? '#ff9a3d' : '#6fe9ff';
+    for(let i=0;i<5;i++){ const x=h.x+10+i*h.w/5, amp=Math.sin(t*5+i)*5; ctx.beginPath(); ctx.arc(x,h.y+3+amp,5+i%2,0,7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  function drawGate(g) {
+    const openOffset = g.open ? -96 : 0;
+    ctx.save(); ctx.translate(0, openOffset);
+    const grd = ctx.createLinearGradient(g.x,g.y,g.x+g.w,g.y); grd.addColorStop(0,'#31275e'); grd.addColorStop(.5,'#bda163'); grd.addColorStop(1,'#31275e'); ctx.fillStyle = grd; roundRect(g.x,g.y,g.w,g.h,12); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; for(let y=g.y+12;y<g.y+g.h;y+=22) ctx.fillRect(g.x+6,y,g.w-12,3);
+    ctx.restore();
+  }
+  function drawButton(b) {
+    const color = b.role === 'fire' ? '#ff8a3d' : b.role === 'water' ? '#55d3ff' : '#ffd477';
+    ctx.fillStyle = b.pressed ? '#7cffbe' : color; roundRect(b.x,b.y+(b.pressed?6:0),b.w,b.h,7); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(b.x+8,b.y+b.h+(b.pressed?6:0),b.w-16,4);
+    if (b.label) { ctx.font='900 18px system-ui'; ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillStyle='rgba(255,248,232,.9)'; ctx.fillText(b.label, b.x + b.w/2, b.y - 4); }
+  }
+  function drawExit(t) {
+    const e = LEVEL.exit; const glow = .65 + Math.sin(t*3)*.15;
+    ctx.fillStyle = `rgba(255,212,119,${.10*glow})`; ctx.beginPath(); ctx.ellipse(e.x,e.y+10,90,124,0,0,7); ctx.fill();
+    ctx.fillStyle = '#211946'; roundRect(e.x-e.w/2,e.y-e.h/2,e.w,e.h,48); ctx.fill();
+    ctx.strokeStyle = '#ffd477'; ctx.lineWidth = 5; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,212,119,.24)'; roundRect(e.x-38,e.y-42,76,94,34); ctx.fill();
+  }
+  function drawTutorialHints(t) {
+    if (win || currentLevelIndex > 0) return;
+    const alpha = .45 + Math.sin(t * 4) * .18;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = '900 18px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff8e8';
+    if (players.fire.y > 720 || players.water.y > 720) {
+      ctx.fillText('прыжок + движение', W / 2, 820);
+      drawArrow(138, 830, 116, 766, '#ff8a3d');
+      drawArrow(402, 830, 424, 766, '#55d3ff');
+    }
+    if (!LEVEL.gates[0].latched) {
+      ctx.fillText('оба героя на своих плитах = дверь откроется', W / 2, 286);
+      drawArrow(205, 288, 146, 310, '#ff8a3d');
+      drawArrow(335, 288, 395, 310, '#55d3ff');
+    } else {
+      ctx.fillText('дверь открыта — к порталу вдвоём', W / 2, 244);
+      drawArrow(270, 236, 270, 154, '#ffd477');
+    }
+    if (practiceMode) {
+      ctx.font = '800 14px system-ui';
+      ctx.fillStyle = '#ffd477';
+      ctx.fillText('тренировка: верхняя левая плашка переключает героя', W / 2, 934);
+    }
+    ctx.restore();
+  }
+  function drawArrow(x1, y1, x2, y2, color) {
+    const a = Math.atan2(y2 - y1, x2 - x1);
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - Math.cos(a - .55) * 16, y2 - Math.sin(a - .55) * 16);
+    ctx.lineTo(x2 - Math.cos(a + .55) * 16, y2 - Math.sin(a + .55) * 16);
+    ctx.closePath(); ctx.fill();
+  }
+
+  function drawGem(g,t) {
+    ctx.save(); ctx.translate(g.x, g.y + Math.sin(t*4+g.x)*5); ctx.rotate(Math.sin(t*2)*.08);
+    ctx.fillStyle = g.type === 'fire' ? '#ff8a3d' : '#54ccff'; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 16;
+    ctx.beginPath(); ctx.moveTo(0,-15); ctx.lineTo(13,-3); ctx.lineTo(7,15); ctx.lineTo(-7,15); ctx.lineTo(-13,-3); ctx.closePath(); ctx.fill();
+    ctx.shadowBlur=0; ctx.fillStyle='rgba(255,255,255,.55)'; ctx.beginPath(); ctx.moveTo(0,-10); ctx.lineTo(6,-3); ctx.lineTo(0,2); ctx.closePath(); ctx.fill(); ctx.restore();
+  }
+  function drawPlayer(p,t) {
+    if (!p.alive) return;
+    const fire = p.role === 'fire'; const main = fire ? '#ff743d' : '#55ceff'; const dark = fire ? '#8d2440' : '#164c95';
+    ctx.save(); ctx.translate(p.x,p.y); ctx.scale(p.face,1);
+    ctx.shadowColor = main; ctx.shadowBlur = 16 + p.glow * 10;
+    const bob = Math.sin(t*9 + p.x*.02) * (p.grounded ? 2 : 0);
+    ctx.fillStyle = dark; roundRect(-p.w/2, -p.h/2+bob, p.w, p.h, 18); ctx.fill();
+    const body = ctx.createLinearGradient(0,-p.h/2,0,p.h/2); body.addColorStop(0, fire?'#ffd16d':'#c5f6ff'); body.addColorStop(.38, main); body.addColorStop(1, dark); ctx.fillStyle = body; roundRect(-p.w/2+4, -p.h/2+4+bob, p.w-8, p.h-8, 16); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#120f2f'; ctx.beginPath(); ctx.arc(6,-12+bob,3.2,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(-7,-12+bob,3.2,0,7); ctx.fill();
+    ctx.strokeStyle = 'rgba(18,15,47,.75)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,0+bob,7,0,Math.PI); ctx.stroke();
+    ctx.fillStyle = fire ? '#ffd477' : '#e8fbff'; ctx.globalAlpha=.85; ctx.beginPath(); ctx.arc(-7,-22+bob,5,0,7); ctx.fill(); ctx.globalAlpha=1;
+    ctx.restore();
+  }
+  function drawParticles(){ particles.forEach(p=>{ ctx.globalAlpha=Math.max(0,p.life*1.8); ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill(); }); ctx.globalAlpha=1; }
+  function drawForeground(t) { ctx.strokeStyle='rgba(255,212,119,.10)'; ctx.lineWidth=2; ctx.strokeRect(8,8,W-16,H-16); }
+  function drawTopUI() {
+    ctx.save(); ctx.fillStyle='rgba(8,7,24,.42)'; roundRect(24,28,492,44,22); ctx.fill();
+    ctx.font='800 16px system-ui'; ctx.fillStyle='#fff8e8'; ctx.textBaseline='middle';
+    ctx.fillText(`🔥 ${players.fire.score}`, 44, 50); ctx.fillText(`💧 ${players.water.score}`, 136, 50);
+    const total = LEVEL.gems.length, got = collected.size; ctx.fillStyle='rgba(255,248,232,.72)'; ctx.fillText(`${currentLevelIndex + 1}/${LEVELS.length} · ${got}/${total}`, 318, 50);
+    ctx.font='800 13px system-ui'; ctx.fillStyle='rgba(255,248,232,.58)'; ctx.textAlign='center'; ctx.fillText(LEVEL.name, W/2, 86);
+    if (win) { ctx.textAlign='center'; ctx.font='900 36px system-ui'; ctx.fillStyle='#ffd477'; ctx.fillText('ПОБЕДА', W/2, H/2-20); ctx.font='700 16px system-ui'; ctx.fillStyle='rgba(255,248,232,.82)'; ctx.fillText('оба героя дошли до портала', W/2, H/2+18); }
+    ctx.restore();
+  }
+  function roundRect(x,y,w,h,r){ r=Math.min(r,w/2,h/2); ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+})();
+</script>
+</body>
+</html>
